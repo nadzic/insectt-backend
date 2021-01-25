@@ -11,3 +11,5 @@ require (
 )
 
 replace insectt.io/api => ./api/
+
+replace insectt.io/models => ./models/
