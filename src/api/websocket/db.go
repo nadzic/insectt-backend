@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"database/sql"
 	"encoding/json" // package to encode and decode the json into struct and vice versa
-	"fmt"
 	"log"
 	"net/http" // used to access the request and response object of the api
 	"os"       // used to read the environment variable
-	"strconv"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo"
 	"github.com/joho/godotenv" // package used to read the .env file
@@ -18,6 +16,15 @@ import (
 var (
 	upgrader  = websocket.Upgrader{}
 )
+
+// Measurement model
+type Measurement struct {
+	ID                  int64    `json:"id"`
+	MeasuredAt          string   `json:"measured_at"`
+	SignalTypeID        int      `json:"signal_type_id"`
+	SignalValue         float32  `json:"signal_value"`
+	MeasurementID       int8     `json:"measurement_id"`
+}
 
 type response struct {
 	ID      int64  `json:"id,omitempty"`
@@ -52,8 +59,8 @@ func createConnection() *sql.DB {
 	return db
 }
 
-// CreateUser create a user in the postgres db
-func CreateUser(w http.ResponseWriter, r *http.Request) {
+// CreateMeasurement create a measurement in the postgres db
+func CreateMeasurement(w http.ResponseWriter, r *http.Request) {
 	// set the header to content type x-www-form-urlencoded
 	// Allow all origin to handle cors issue
 	w.Header().Set("Context-Type", "application/x-www-form-urlencoded")
@@ -61,31 +68,31 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Methods", "POST")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	// create an empty user of type models.User
-	var measurement models.Measurement
+	// create an empty measurement of type Measurement
+	var measurement Measurement
 
-	// decode the json request to user
+	// decode the json request to measurement
 	err := json.NewDecoder(r.Body).Decode(&measurement)
 
 	if err != nil {
 			log.Fatalf("Unable to decode the request body.  %v", err)
 	}
 
-	// call insert user function and pass the user
+	// call insert measurement function and pass the measurement
 	insertID := insertMeasurement(measurement)
 
 	// format a response object
 	res := response{
 			ID:      insertID,
-			Message: "User created successfully",
+			Message: "measurement created successfully",
 	}
 
 	// send the response
 	json.NewEncoder(w).Encode(res)
 }
 
-// insert one user in the DB
-func insertMeasurement(user models.User) int64 {
+// insert one measurement in the DB
+func insertMeasurement(measurement Measurement) int64 {
 
 	// create the postgres db connection
 	db := createConnection()
@@ -94,15 +101,15 @@ func insertMeasurement(user models.User) int64 {
 	defer db.Close()
 
 	// create the insert sql query
-	// returning userid will return the id of the inserted user
-	sqlStatement := `INSERT INTO users (name, location, age) VALUES ($1, $2, $3) RETURNING userid`
+	// returning measurement id will return the id of the inserted measurement
+	sqlStatement := `INSERT INTO raw_data_t (measured_at, signal_type_id, signal_value, measurement_id) VALUES ($1, $2, $3, $4) RETURNING id`
 
 	// the inserted id will store in this id
 	var id int64
 
 	// execute the sql statement
 	// Scan function will save the insert id in the id
-	err := db.QueryRow(sqlStatement, user.Name, user.Location, user.Age).Scan(&id)
+	err := db.QueryRow(sqlStatement, measurement.MeasuredAt, measurement.SignalTypeID, measurement.SignalValue, measurement.MeasurementID).Scan(&id)
 
 	if err != nil {
 			log.Fatalf("Unable to execute the query. %v", err)

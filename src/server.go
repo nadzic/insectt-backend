@@ -12,5 +12,6 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Static("/", "../public")
 	e.GET("/ws", websocket.DbHandler)
+	e.POST("/ws", websocket.DbHandler)
 	e.Logger.Fatal(e.Start(":8080"))
 }
